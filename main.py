@@ -3,19 +3,18 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 import sqlite3
-import addproduct, addmember, sellings
+import addproduct, addmember, sellings, style
 from PIL import Image
 
-
-con=sqlite3.connect("products.db")
-cur=con.cursor()
+con = sqlite3.connect("products.db")
+cur = con.cursor()
 
 class Main(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Product Manager")
         self.setWindowIcon(QIcon('icons/icon.ico'))
-        self.setGeometry(450,150,1350,750)
+        self.setGeometry(450, 150, 1350, 750)
         self.setFixedSize(self.size())
 
         self.UI()
@@ -28,6 +27,7 @@ class Main(QMainWindow):
         self.layouts()
         self.displayProducts()
         self.displayMembers()
+        self.getStatistics()
 
     def toolBar(self):
         self.tb = self.addToolBar("Tool Bar")
@@ -51,7 +51,9 @@ class Main(QMainWindow):
 
     def tabWigdet(self):
         self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs) # to display tabs
+        self.tabs.blockSignals(True)
+        self.tabs.currentChanged.connect(self.tabChanged)
+        self.setCentralWidget(self.tabs)  # to display tabs
         self.tab1 = QWidget()
         self.tab2 = QWidget()
         self.tab3 = QWidget()
@@ -83,6 +85,7 @@ class Main(QMainWindow):
         self.searchEntry.setPlaceholderText("Search For Products")
         self.searchButton = QPushButton("Search")
         self.searchButton.clicked.connect(self.searchProducts)
+        self.searchButton.setStyleSheet(style.searchButtonStyle())
 
         ##########################Right middle layout widgets###########
         self.allProducts = QRadioButton("All Products")
@@ -90,6 +93,7 @@ class Main(QMainWindow):
         self.notAvaialableProducts = QRadioButton("Not Available")
         self.listButton = QPushButton("List")
         self.listButton.clicked.connect(self.listProducts)
+        self.listButton.setStyleSheet(style.listButtonStyle())
 
         ########################Tab2 Widgets#########################
         self.membersTable = QTableWidget()
@@ -109,6 +113,12 @@ class Main(QMainWindow):
         self.memberSearchButton = QPushButton("Search")
         self.memberSearchButton.clicked.connect(self.searchMembers)
 
+        ##########################Tab3 widgets#####################
+        self.totalProductsLabel = QLabel()
+        self.totalMemberLabel = QLabel()
+        self.soldProductsLabel = QLabel()
+        self.totalAmountLabel = QLabel()
+
     def layouts(self):
         ######################Tab1 layouts##############
         self.mainLayout = QHBoxLayout()
@@ -117,7 +127,10 @@ class Main(QMainWindow):
         self.rightTopLayout = QHBoxLayout()
         self.rightMiddleLayout = QHBoxLayout()
         self.topGroupBox = QGroupBox("Search Box")
+        self.topGroupBox.setStyleSheet(style.searchBoxStyle())
         self.middleGroupBox = QGroupBox("List Box")
+        self.middleGroupBox.setStyleSheet(style.listBoxStyle())
+        self.bottomGroupBox = QGroupBox()
 
         #################Add widgets###################
         ################Left main layout widget###########
@@ -136,8 +149,9 @@ class Main(QMainWindow):
         self.rightMiddleLayout.addWidget(self.listButton)
         self.middleGroupBox.setLayout(self.rightMiddleLayout)
 
-        self.mainRightLayout.addWidget(self.topGroupBox)
-        self.mainRightLayout.addWidget(self.middleGroupBox)
+        self.mainRightLayout.addWidget(self.topGroupBox, 20)
+        self.mainRightLayout.addWidget(self.middleGroupBox, 20)
+        self.mainRightLayout.addWidget(self.bottomGroupBox, 60)
         self.mainLayout.addLayout(self.mainLeftLayout, 70)
         self.mainLayout.addLayout(self.mainRightLayout, 30)
         self.tab1.setLayout(self.mainLayout)
@@ -160,11 +174,26 @@ class Main(QMainWindow):
         self.memberMainLayout.addWidget(self.memberRightGroupBox, 30)
         self.tab2.setLayout(self.memberMainLayout)
 
+        #####################Tab3 layouts########################
+        self.statisticsMainLayout = QVBoxLayout()
+        self.statisticsLayout = QFormLayout()
+        self.statisticsGroupBox = QGroupBox("Statistics")
+        self.statisticsLayout.addRow("Total Products:", self.totalProductsLabel)
+        self.statisticsLayout.addRow("Total Member:", self.totalMemberLabel)
+        self.statisticsLayout.addRow("Sold Products:", self.soldProductsLabel)
+        self.statisticsLayout.addRow("Total Amount:", self.totalAmountLabel)
+
+        self.statisticsGroupBox.setLayout(self.statisticsLayout)
+        self.statisticsGroupBox.setFont(QFont("Arial", 20))
+        self.statisticsMainLayout.addWidget(self.statisticsGroupBox)
+        self.tab3.setLayout(self.statisticsMainLayout)
+        self.tabs.blockSignals(False)
+
     def funcAddProduct(self):
-        self.newProduct = addproduct.AddProduct() # pythonFile . classFile
+        self.newProduct = addproduct.AddProduct()  # pythonFile . classFile
 
     def funcAddMember(self):
-        self.newMember = addmember.AddMember() # pythonfile.classfile
+        self.newMember = addmember.AddMember()  # pythonfile.classfile
 
     def displayProducts(self):
         self.productsTable.setFont(QFont("Times", 12))
@@ -304,12 +333,31 @@ class Main(QMainWindow):
     def funcSellProducts(self):
         self.sell = sellings.SellProducts()
 
+    def getStatistics(self):
+        countProducts = cur.execute("SELECT count(product_id) FROM products").fetchall()
+        countMembers = cur.execute("SELECT count(member_id) FROM members").fetchall()
+        soldProducts = cur.execute("SELECT SUM(selling_quantity) FROM sellings").fetchall()
+        totalAmount = cur.execute("SELECT SUM(selling_amount) FROM sellings").fetchall()
+        totalAmount = totalAmount[0][0]
+        soldProducts = soldProducts[0][0]
+        countMembers = countMembers[0][0]
+        countProducts = countProducts[0][0]
+        self.totalProductsLabel.setText(str(countProducts))
+        self.totalMemberLabel.setText(str(countMembers))
+        self.soldProductsLabel.setText(str(soldProducts))
+        self.totalAmountLabel.setText(str(totalAmount) + " $")
+
+    def tabChanged(self):
+        self.getStatistics()
+        self.displayProducts()
+        self.displayMembers()
+
 class DisplayMember(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Member Details")
         self.setWindowIcon(QIcon('icons/icon.ico'))
-        self.setGeometry(450,150,350,600)
+        self.setGeometry(450, 150, 350, 600)
         self.setFixedSize(self.size())
         self.UI()
         self.show()
@@ -395,10 +443,8 @@ class DisplayMember(QWidget):
                 cur.execute(query, (name, surname, phone, memberId))
                 con.commit()
                 QMessageBox.information(self, "Info", "Member has been updated!")
-
             except:
                 QMessageBox.information(self, "Info", "Member has been updated!")
-
         else:
             QMessageBox.information(self, "Info", "Fields can not be empty!")
 
@@ -407,7 +453,7 @@ class DisplayProduct(QWidget):
         super().__init__()
         self.setWindowTitle("Product Details")
         self.setWindowIcon(QIcon('icons/icon.ico'))
-        self.setGeometry(450,150,350,600)
+        self.setGeometry(450, 150, 350, 600)
         self.setFixedSize(self.size())
         self.UI()
         self.show()
@@ -524,7 +570,7 @@ class DisplayProduct(QWidget):
                 QMessageBox.information(self, "Information", "Product has not been deleted!")
 
 def main():
-    App=QApplication(sys.argv)
+    App = QApplication(sys.argv)
     window = Main()
     sys.exit(App.exec_())
 
